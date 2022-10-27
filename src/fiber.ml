@@ -376,6 +376,15 @@ let make_scheduler ?unblock current =
       in
       s
 
+let blocked = ref []
+let neq deepali = Fun.negate (E.equal deepali)
+let rem_blocked deepali = blocked := List.filter (neq deepali) !blocked
+
+let pop_blocked () = match !blocked with
+| [] -> None 
+| e :: es -> rem_blocked e; Some e
+
+
 (* Effect handlers *)
 
 let do_spawn s exec { fiber; run } k =
@@ -440,7 +449,6 @@ let do_block s block k =
 let sw = ref true
 
 let do_suspend s fn k =
-  let blocked = ref [] in
   printf "Inside Suspend function";
   let (E f as fiber) = current s in
    match f.state with
@@ -452,8 +460,7 @@ let do_suspend s fn k =
                  (match v with
                          | Error exn -> Effect.Deep.discontinue k exn
                          | Ok x -> 
-                           let neq deepali = Fun.negate (E.equal deepali) in
-                           let rem_blocked deepali = blocked := List.filter (neq deepali) !blocked in
+                           
                            let block deepali = blocked := deepali :: !blocked in
                            let abort deepali = rem_blocked deepali in
                            let retv deepali = rem_blocked deepali; x in
@@ -482,6 +489,14 @@ type 'a handler = ('a, unit) Effect.Deep.continuation -> unit
 let flip = let () = Random.self_init () in Random.bool
 
 let run ?unblock ?finally func =
+  let unblock = Some (
+    let unblock ~poll = match poll with
+    | false -> pop_blocked () 
+    | _ -> None 
+    in 
+    unblock
+  )
+  in
   let rec exec : scheduler -> (unit -> unit) -> unit = fun s f ->
     let retc = printf "\nAffect : Executing next task%!"; exec_next_todo s in
     let exnc = raise in
