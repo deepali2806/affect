@@ -5,7 +5,7 @@ open Topkg
 
 let () =
   Pkg.describe "affect" @@ fun c ->
-  Ok [ Pkg.mllib "src/affect.mllib";
+  Ok [ Pkg.mllib "src/affect.mllib" ~dst_dir:"eio_domainslib_interface";
        Pkg.mllib "src/affect_unix.mllib" ~dst_dir:"unix";
        Pkg.test "test/test";
        Pkg.test "test/ping";

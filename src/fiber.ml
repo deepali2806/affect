@@ -2,6 +2,9 @@
    Copyright (c) 2022 The affect programmers. All rights reserved.
    Distributed under the ISC license, see terms at the end of the file.
   ---------------------------------------------------------------------------*)
+open Printf 
+open Eio_domainslib_interface
+open Effect.Deep
 
 let uncaught_exception_handler exn bt =
   (* XXX we want to use the actual installed one but we don't have access to
@@ -121,6 +124,7 @@ let rec either f0 f1 = match f0.state with
 let handle_termination f ~finally func () =
   (* Wraps the fiber function [func] of fiber [f] to handle its termination.
      This is the only place that sets f.state to Terminated *)
+  printf "\nAffect : Inside handle_termination%!";
   let terminate f ~finally v =
     let finally_no_exn ~finally = match finally with
     | None -> () | Some finally -> (* We follow Fun.protect here. *)
@@ -180,9 +184,9 @@ let handle_termination f ~finally func () =
   in
   match f.state with
   | Aborting -> (* We didn't even start [func] *) terminate f ~finally None
-  | Running _ ->
+  | Running _ ->   printf "\nAffect : Inside handle_termination : Running state%!";
       begin match func () with
-      | v -> value_termination f ~finally v
+      | v -> printf "\nAffect : Inside handle_termination at func () return type %!"; value_termination f ~finally v
       | exception Abort -> abort_termination ~finally f
       | exception (Stack_overflow | Out_of_memory | Sys.Break as e) ->
           let bt = Printexc.get_raw_backtrace () in
@@ -198,6 +202,7 @@ let spawn ?finally func =
   let f = make () in
   let spawn = { fiber = f.e; run = handle_termination ~finally f func } in
   Effect.perform (Spawn spawn);
+  printf "\nAffect : After performing spawn effect and before f%!";
   f
 
 (* Blocking *)
@@ -371,12 +376,27 @@ let make_scheduler ?unblock current =
       in
       s
 
+let blocked = ref []
+let neq deepali = Fun.negate (E.equal deepali)
+let rem_blocked deepali = blocked := List.filter (neq deepali) !blocked
+
+let pop_blocked () = match !blocked with
+| [] -> None 
+| e :: es -> rem_blocked e; Some e
+
+
 (* Effect handlers *)
 
 let do_spawn s exec { fiber; run } k =
+  printf "\nAffect : Inside do_spawn%!";
   E.attach (current s) ~spawn:fiber;
+  printf "\nAffect : Inside do_spawn Before scheduling%!";
   schedule_last s (fiber, fun () -> exec s run);
-  Effect.Deep.continue k ()
+  printf "\nAffect : Inside do_spawn after scheduling %!";
+  Effect.Deep.continue k ();
+  printf "\nAffect : Inside do_spawn after continuing %!"
+
+
 
 let do_yield s k =
   let (E f as fiber) = current s in
@@ -411,28 +431,116 @@ let do_block s block k =
       resume_blocked fiber block k ()
   | Terminated _ -> assert false
 
+
+  (* let do_suspend s block k =
+    let (E f as fiber) = current s in
+    match f.state with
+    | Running _ ->
+        begin match block.block fiber with
+        | exception exn -> Effect.Deep.discontinue k exn
+        | () ->
+            add_blocked s f (resume_blocked fiber block k);
+            exec_next_todo s ()
+        end
+    | Aborting (* Don't block but invoke [block]'s abort *) ->
+        resume_blocked fiber block k ()
+    | Terminated _ -> assert false *)
+
+let sw = ref true
+
+let do_suspend s fn k =
+  printf "Inside Suspend function";
+  let (E f as fiber) = current s in
+   match f.state with
+   | Running _ -> 
+         
+         let resumer v = 
+            (if !sw then
+             begin
+                 (match v with
+                         | Error exn -> Effect.Deep.discontinue k exn
+                         | Ok x -> 
+                           
+                           let block deepali = blocked := deepali :: !blocked in
+                           let abort deepali = rem_blocked deepali in
+                           let retv deepali = rem_blocked deepali; x in
+                           let block1 = {block; abort; retv} in
+                           add_blocked s f (resume_blocked fiber block1 k)
+                           (* schedule_last s (fiber, (resume fiber k)) *)
+                 );
+                 true
+             end
+           else
+             false ) 
+         in 
+          if (fn resumer) then
+          begin
+             Printf.printf "\nScheduling next task%!"; 
+             exec_next_todo s ()
+          end
+          else
+             assert false
+  | Aborting (* Don't let it yield *) -> Effect.Deep.discontinue k Abort
+  | Terminated _ -> assert false      
+
+
 type 'a handler = ('a, unit) Effect.Deep.continuation -> unit
 
+let flip = let () = Random.self_init () in Random.bool
+
 let run ?unblock ?finally func =
+  let unblock = Some (
+    let unblock ~poll = match poll with
+    | false -> pop_blocked () 
+    | _ -> None 
+    in 
+    unblock
+  )
+  in
   let rec exec : scheduler -> (unit -> unit) -> unit = fun s f ->
-    let retc = exec_next_todo s in
+    let retc = printf "\nAffect : Executing next task%!"; exec_next_todo s in
     let exnc = raise in
     let effc (type c) (e : c Effect.t) = match e with
     | Yield -> Some (do_yield s : c handler)
-    | Spawn spawn -> Some (do_spawn s exec spawn : c handler)
+    | Spawn spawn -> printf "\nAffect : Spawn Handler%!"; Some (do_spawn s exec spawn : c handler)
     | Abort' what -> Some (do_abort s what : c handler)
     | Block block -> Some (do_block s block : c handler)
+    | Sched.Suspend fn -> Some (do_suspend s fn : c handler)                  
     | e -> None
     in
     Effect.Deep.match_with f () { Effect.Deep.retc; exnc; effc }
   in
-  let main, run = E.main ?finally func in
+  let main, run = E.main ?finally func in    (* Here internally handle_termination is called, this function(E.main) returns main as fiber and handle_termination as function *)
   let s = make_scheduler ?unblock main.e in
   exec s run;
   assert (not (has_blocked s));
   match main.state with
   | Running _ | Aborting -> assert false | Terminated r -> r
 
+
+
+   (* | Sched.Suspend f ->      let i = ref (-2) in
+                        let blocked = ref [] in
+                        let neq e = Fun.negate (E.equal e) in
+                        let rem_blocked e = blocked := List.filter (neq e) !blocked in
+                        let pop_blocked () = match !blocked with
+                        | [] -> None | e :: es -> rem_blocked e; Some e
+                        in
+                        let block e =
+                          printf " Blocking %d" (E.id e);
+                          blocked := e :: !blocked
+                        in
+                        let abort e = printf " Aborting"; rem_blocked e in
+                        let retv e = rem_blocked e; incr i; !i in
+                        let unblock ~poll = match poll with
+                        | false -> pop_blocked ()
+                        | true ->
+                            if !i = (-2) then (* for testing abort *) (incr i; None) else
+                            if flip () then pop_blocked () else None
+                        in
+                          let block = { block; abort; retv } in
+                          Some (do_block s block: c handler ) *)
+    (* | Sched.Suspend _ -> printf "\nAffect: Suspend efffect Handler"; assert false *)
 (*---------------------------------------------------------------------------
    Copyright (c) 2022 The affect programmers
 
