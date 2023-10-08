@@ -2,8 +2,8 @@
 
 
   description = "Composable concurrency primitives"
-  version = "%%VERSION_NUM%%"
-  requires = "eio_domainslib_interface"
+  version = "2db6d25"
+  requires = "unified_interface"
   archive(byte) = "affect.cma"
   archive(native) = "affect.cmxa"
   plugin(byte) = "affect.cma"
@@ -13,7 +13,7 @@
 
 package "unix" (
   description = "Unix support"
-  version = "%%VERSION_NUM%%"
+  version = "2db6d25"
   directory = "unix"
   requires = "unix affect"
   archive(byte) = "affect_unix.cma"

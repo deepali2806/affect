@@ -3,7 +3,7 @@
    Distributed under the ISC license, see terms at the end of the file.
   ---------------------------------------------------------------------------*)
 open Printf 
-open Eio_domainslib_interface
+open Unified_interface
 open Effect.Deep
 
 let uncaught_exception_handler exn bt =
@@ -472,14 +472,21 @@ let do_suspend s fn k =
              end
            else
              false ) 
-         in 
+         in begin
+         match (fn resumer) with
+         | Some v -> continue k v
+         | None ->
+          Printf.printf "\nScheduling next task%!";
+          exec_next_todo s ()
+         end
+(*           
           if (fn resumer) then
           begin
              Printf.printf "\nScheduling next task%!"; 
              exec_next_todo s ()
           end
           else
-             assert false
+             assert false *)
   | Aborting (* Don't let it yield *) -> Effect.Deep.discontinue k Abort
   | Terminated _ -> assert false      
 
