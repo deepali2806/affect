@@ -244,7 +244,7 @@ type unblock = poll:bool -> E.t option
 
 module Clist = struct
   type 'a t =
-    { mutable v : 'a option; (* None is for the root. *)
+    {  v : 'a option; (* None is for the root. *)
       mutable prev : 'a t; (* on root this points to last element. *)
       mutable next : 'a t; (* on root this points to the first element. *) }
 

@@ -1,0 +1,8 @@
+(library
+ (name affect)
+ (public_name affect)
+ (libraries unified_interface unix))
+
+(env
+  (dev
+    (flags (:standard -w -32 -w -27) )))

@@ -24,5 +24,11 @@ depends: [
   "ocamlbuild" {build}
   "topkg" {build & >= "1.0.3"}
 ]
-build: ["ocaml" "pkg/pkg.ml" "build" "--dev-pkg" "%{dev}%"]
+build: ["dune"
+    "build"
+    "-p"
+    name
+    "-j"
+    jobs
+    "@install"]
 dev-repo: "git+https://erratique.ch/repos/affect.git"
