@@ -1,6 +1,6 @@
 Affect — Composable concurrency primitives for OCaml
 ====================================================
-%%VERSION%%
+2db6d25
 
 Affect provides composable concurrency primitives for OCaml using the
 effect handlers available in OCaml 5.0.

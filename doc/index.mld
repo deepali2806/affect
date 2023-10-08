@@ -1,4 +1,4 @@
-{0 Affect {%html: <span class="version">%%VERSION%%</span>%}}
+{0 Affect {%html: <span class="version">2db6d25</span>%}}
 
 Composable concurrency primitives using OCaml effect handlers.
 

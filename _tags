@@ -2,7 +2,7 @@ true : bin_annot, safe_string
 
 <_b0> : -traverse
 <src> : include
-<src/fiber*> : package(eio_domainslib_interface)
+<src/fiber*> : package(unified_interface)
 <src/funix*> : package(unix)
 <src/netmsg*> : package(unix)
 
