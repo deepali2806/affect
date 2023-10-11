@@ -1,3 +1,9 @@
 (test
  (name test_funix)
+ (modules test_funix)
+ (libraries affect))
+
+(test
+ (name ping)
+ (modules ping)
  (libraries affect))
