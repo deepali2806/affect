@@ -2,7 +2,6 @@
    Copyright (c) 2022 The affect programmers. All rights reserved.
    Distributed under the ISC license, see terms at the end of the file.
   ---------------------------------------------------------------------------*)
-open Printf 
 open Unified_interface
 open Effect.Deep
 

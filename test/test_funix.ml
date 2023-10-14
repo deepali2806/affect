@@ -2,11 +2,11 @@
    Copyright (c) 2022 The affect programmers. All rights reserved.
    Distributed under the ISC license, see terms at the end of the file.
   ---------------------------------------------------------------------------*)
-
+open Affect
 
 let log fmt = Printf.printf (fmt ^^ "\n%!")
 
-let flip = let () = Random.self_init () in Random.bool
+let _flip = let () = Random.self_init () in Random.bool
 let now_s () = Unix.gettimeofday ()
 
 let test_sleeps () =

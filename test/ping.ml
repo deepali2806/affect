@@ -15,6 +15,8 @@
    a bit the abort paths. They always restart on errors, so a ping may
    become a pong server if the latter dies. *)
 
+open Affect
+
 let ( let* ) = Result.bind
 
 let () = Random.self_init ()
@@ -125,7 +127,7 @@ let rec main () =
   let ping_pong = ping_pong endpoint ~max_ping_period in
   match Fiber.run ~unblock:Funix.unblock ping_pong with
   | None -> main ()
-  | Some (Error e) -> main ()
+  | Some (Error _) -> main ()
   | Some (Ok ()) -> exit 0
 
 let () = if !Sys.interactive then () else main ()
